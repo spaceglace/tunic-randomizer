@@ -1,4 +1,5 @@
 ﻿using BepInEx.Logging;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -8,6 +9,16 @@ using static TunicRandomizer.SaveFlags;
 namespace TunicRandomizer {
     public class InteractionPatches {
         private static ManualLogSource Logger = TunicRandomizer.Logger;
+
+        private static Dictionary<string, string> GraveLookup = new Dictionary<string, string>()
+        {
+            { "Sword Access", "East Forest Relic" },
+            { "Archipelagos Redux", "West Garden Relic" },
+            { "Fortress Reliquary", "Fortress Relic" },
+            { "Library Hall", "Library Relic" },
+            { "Swamp Redux 2", "Swamp Relic" },
+            { "Monastery", "Monastery Relic" },
+        };
 
         public static bool InteractionTrigger_Interact_PrefixPatch(Item item, InteractionTrigger __instance) {
             string InteractionLocation = SceneLoaderPatches.SceneName + " " + __instance.transform.position;
@@ -31,6 +42,17 @@ namespace TunicRandomizer {
                     ItemStatsHUD.UpdateAbilitySection();
                 }
 
+                // Record visited hints in save file
+                if (GhostHints.HintGhosts.ContainsKey(__instance.name))
+                {
+                    HashSet<string> foxes = new HashSet<string>(SaveFile.GetString("RandoVisitedFoxes").Split(new[] {','}, System.StringSplitOptions.RemoveEmptyEntries));
+                    if (!foxes.Contains(__instance.name))
+                    {
+                        foxes.Add(__instance.name);
+                        SaveFile.SetString("RandoVisitedFoxes", string.Join(",", foxes));
+                    }
+                }
+
                 if (IsArchipelago() && TunicRandomizer.Settings.SendHintsToServer) {
                     GhostHints.CheckForServerHint(__instance.name);
                 }
@@ -38,6 +60,17 @@ namespace TunicRandomizer {
             if (Hints.HintLocations.ContainsKey(InteractionLocation) && Hints.HintMessages.ContainsKey(Hints.HintLocations[InteractionLocation]) && TunicRandomizer.Settings.HeroPathHintsEnabled) {
                 LanguageLine Hint = ScriptableObject.CreateInstance<LanguageLine>();
                 Hint.text = Hints.HintMessages[Hints.HintLocations[InteractionLocation]];
+
+                // Record any hints we visit that aren't signs
+                if (!Hints.HintLocations[InteractionLocation].EndsWith(" Sign"))
+                {
+                    HashSet<string> visited = new HashSet<string>(SaveFile.GetString("RandoVisitedHints").Split(new[] {','}, System.StringSplitOptions.RemoveEmptyEntries));
+                    if (!visited.Contains(Hints.HintLocations[InteractionLocation]))
+                    {
+                        visited.Add(Hints.HintLocations[InteractionLocation]);
+                        SaveFile.SetString("RandoVisitedHints", string.Join(",", visited));
+                    }
+                }
 
                 GenericMessage.ShowMessage(Hint);
                 return false;
@@ -50,6 +83,15 @@ namespace TunicRandomizer {
             if (__instance.GetComponentInParent<HeroGraveToggle>() != null && TunicRandomizer.Settings.HeroPathHintsEnabled) {
                 bool showRelicHint = StateVariable.GetStateVariableByName("randomizer got all 6 grave items").BoolValue;
                 HeroGraveHint hint = __instance.GetComponentInParent<HeroGraveToggle>().heroGravehint;
+
+                // Record hero grave hints and if we got the relic or path hint for it
+                string current = GraveLookup[hint.SceneName] + ":" + (showRelicHint ? "R" : "P");
+                HashSet<string> visited = new HashSet<string>(SaveFile.GetString("RandoVisitedGraves").Split(new[] {','}, System.StringSplitOptions.RemoveEmptyEntries));
+                if (!visited.Contains(current))
+                {
+                    visited.Add(current);
+                    SaveFile.SetString("RandoVisitedGraves", string.Join(",", visited));
+                }
 
                 GenericMessage.ShowMessage(showRelicHint ? hint.RelicHint : hint.PathHint);
                 return false;

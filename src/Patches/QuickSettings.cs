@@ -18,11 +18,13 @@ namespace TunicRandomizer {
         public static List<string> FoolColors = new List<string>() { "white", "#4FF5D4", "#E3D457", "#FF3333" };
         private static bool ShowAdvancedSinglePlayerOptions = false;
         private static bool ShowAPSettingsWindow = false;
+        private static bool ShowServerSettingsWindow = false;
         private static string stringToEdit = "";
         private static bool editingPlayer = false;
         private static bool editingHostname = false;
         private static bool editingPort = false;
         private static bool editingPassword = false;
+        private static bool editingServerPort = false;
         private static bool showPort = false;
         private static bool showPassword = false;
         
@@ -50,12 +52,16 @@ namespace TunicRandomizer {
                 if (ShowAdvancedSinglePlayerOptions && TunicRandomizer.Settings.Mode == RandomizerSettings.RandomizerType.SINGLEPLAYER && !TunicRandomizer.Settings.MysterySeed) {
                     GUI.Window(105, new Rect(460f, 150f, 405f, 485f), new Action<int>(AdvancedLogicOptionsWindow), "Advanced Logic Options");
                 }
-                GameObject.Find("elderfox_sword graphic").GetComponent<Renderer>().enabled = !ShowAdvancedSinglePlayerOptions && !ShowAPSettingsWindow;
+                if (ShowServerSettingsWindow) {
+                    GUI.Window(107, new Rect(460f, 150f, 405f, 340f), new Action<int>(APIServerQuickSettingsWindow), "API Server Settings");
+                }
+
+                GameObject.Find("elderfox_sword graphic").GetComponent<Renderer>().enabled = !ShowAdvancedSinglePlayerOptions && !ShowAPSettingsWindow && !ShowServerSettingsWindow;
             }
         }
 
         private void Update() {
-            if (TunicRandomizer.Settings.Mode == RandomizerSettings.RandomizerType.ARCHIPELAGO && ShowAPSettingsWindow && SceneManager.GetActiveScene().name == "TitleScreen") {
+            if (((TunicRandomizer.Settings.Mode == RandomizerSettings.RandomizerType.ARCHIPELAGO && ShowAPSettingsWindow) || ShowServerSettingsWindow) && SceneManager.GetActiveScene().name == "TitleScreen") {
                 if (Input.anyKeyDown && !Input.GetKeyDown(KeyCode.Return) && !Input.GetKeyDown(KeyCode.Tab) && !Input.GetKeyDown(KeyCode.Backspace)) {
 
                     if (editingPort && Input.inputString != "" && int.TryParse(Input.inputString, out int num)) {
@@ -82,6 +88,9 @@ namespace TunicRandomizer {
                 }
                 if (editingPassword) {
                     TunicRandomizer.Settings.ConnectionSettings.Password = stringToEdit;
+                }
+                if (editingServerPort) {
+                    TunicRandomizer.Settings.ServerSettings.Port = stringToEdit;
                 }
             }
         }
@@ -130,6 +139,20 @@ namespace TunicRandomizer {
                 TunicRandomizer.Settings.Mode = RandomizerSettings.RandomizerType.ARCHIPELAGO;
                 OptionsGUIPatches.SaveSettings();
             }
+
+            GUI.skin.button.fontSize = 17;
+            bool ShowServerSettings = GUI.Button(new Rect(300f, y, 120f, 30f), "API Server");
+            if (ShowServerSettings)
+            {
+                ShowServerSettingsWindow = !ShowServerSettingsWindow;
+                if (ShowServerSettingsWindow)
+                {
+                    ShowAPSettingsWindow = false;
+                    ShowAdvancedSinglePlayerOptions = false;
+                }
+            }
+            GUI.skin.button.fontSize = 20;
+
             y += 40f;
             GUI.Label(new Rect(10f, y, 500f, 30f), $"Player: {(TunicRandomizer.Settings.ConnectionSettings.Player)}");
             y += 40f;
@@ -169,6 +192,7 @@ namespace TunicRandomizer {
                     CloseAPSettingsWindow();
                     Archipelago.instance.Connect();
                 } else {
+                    CloseServerSettingsWindow();
                     ShowAPSettingsWindow = true;
                 }
             }
@@ -267,6 +291,19 @@ namespace TunicRandomizer {
                 OptionsGUIPatches.SaveSettings();
             }
 
+            GUI.skin.button.fontSize = 17;
+            bool ShowServerSettings = GUI.Button(new Rect(300f, y, 120f, 30f), "API Server");
+            if (ShowServerSettings)
+            {
+                ShowServerSettingsWindow = !ShowServerSettingsWindow;
+                if (ShowServerSettingsWindow)
+                {
+                    ShowAPSettingsWindow = false;
+                    ShowAdvancedSinglePlayerOptions = false;
+                }
+            }
+            GUI.skin.button.fontSize = 20;
+
             GUI.skin.toggle.fontSize = 20;
             y += 40f;
             GUI.Label(new Rect(10f, y, 200f, 30f), "Logic Settings");
@@ -298,6 +335,10 @@ namespace TunicRandomizer {
                 bool ShowAdvancedOptions = GUI.Button(new Rect(10f, y, 410f, 30f), $"{(ShowAdvancedSinglePlayerOptions ? "Hide" : "Show")} Advanced Options");
                 if (ShowAdvancedOptions) {
                     ShowAdvancedSinglePlayerOptions = !ShowAdvancedSinglePlayerOptions;
+                    if (ShowServerSettingsWindow)
+                    {
+                        CloseServerSettingsWindow();
+                    }
                 }
                 y += 40f;
 
@@ -327,6 +368,87 @@ namespace TunicRandomizer {
             if (PasteSettings) {
                 TunicRandomizer.Settings.ParseSettingsString(GUIUtility.systemCopyBuffer);
             }
+        }
+
+        private static void APIServerQuickSettingsWindow(int windnowID)
+        {
+            GUI.skin.label.fontSize = 25;
+            GUI.skin.button.fontSize = 20;
+            GUI.skin.toggle.fontSize = 20;
+
+            float y = 40f;
+
+            GUI.Label(new Rect(10f, y, 500f, 30f), Server.instance.Running ? $"Status: Running on {Server.instance.Port}" : "Not Running");
+            y += 40f;
+            bool ToggleServer = GUI.Button(new Rect(10f, y, 140f, 30f), Server.instance.Running ? "Stop" : "Start");
+            if (ToggleServer)
+            {
+                if (Server.instance.Running) Server.instance.Disconnect();
+                else Server.instance.Connect();
+            }
+
+            y += 60f;
+            GUI.Label(new Rect(10f, y, 300f, 30f), $"Port: {TunicRandomizer.Settings.ServerSettings.Port}");
+            y += 40f;
+            bool EditServerPort = GUI.Button(new Rect(10f, y, 75f, 30f), editingServerPort ? "Save" : "Edit");
+            if (EditServerPort)
+            {
+                if (editingServerPort)
+                {
+                    stringToEdit = "";
+                    editingServerPort = false;
+                    OptionsGUIPatches.SaveSettings();
+                }
+                else
+                {
+                    stringToEdit = TunicRandomizer.Settings.ServerSettings.Port;
+                    editingServerPort = true;
+                    editingHostname = false;
+                    editingPort = false;
+                    editingPassword = false;
+                    editingPlayer = false;
+                }
+            }
+            bool PasteServerPort = GUI.Button(new Rect(100f, y, 75f, 30f), "Paste");
+            if (PasteServerPort)
+            {
+                TunicRandomizer.Settings.ServerSettings.Port = GUIUtility.systemCopyBuffer;
+                editingServerPort = false;
+                OptionsGUIPatches.SaveSettings();
+            }
+            bool ClearServerPort = GUI.Button(new Rect(190f, y, 75f, 30f), "Clear");
+            if (ClearServerPort)
+            {
+                if (editingServerPort)
+                {
+                    stringToEdit = "";
+                }
+                TunicRandomizer.Settings.ServerSettings.Port = "";
+                OptionsGUIPatches.SaveSettings();
+            }
+
+            y += 60f;
+            bool Autostart = GUI.Toggle(new Rect(10f, y, 300f, 30f), TunicRandomizer.Settings.ServerSettings.Autoconnect, "Start server automatically");
+            if (Autostart != TunicRandomizer.Settings.ServerSettings.Autoconnect)
+            {
+                TunicRandomizer.Settings.ServerSettings.Autoconnect = Autostart;
+                OptionsGUIPatches.SaveSettings();
+            }
+
+            y += 60f;
+            bool Close = GUI.Button(new Rect(10f, y, 165f, 30f), "Close");
+            if (Close)
+            {
+                CloseServerSettingsWindow();
+            }
+        }
+
+        private static void CloseServerSettingsWindow()
+        {
+            ShowServerSettingsWindow = false;
+            stringToEdit = "";
+            editingServerPort = false;
+            OptionsGUIPatches.SaveSettings();
         }
 
         private static void AdvancedLogicOptionsWindow(int windowID) {
@@ -412,6 +534,7 @@ namespace TunicRandomizer {
                     editingHostname = false;
                     editingPort = false;
                     editingPassword = false;
+                    editingServerPort = false;
                 }
             }
             bool PastePlayer = GUI.Button(new Rect(100f, 70f, 75f, 30f), "Paste");
@@ -430,9 +553,9 @@ namespace TunicRandomizer {
             }
 
             GUI.Label(new Rect(10f, 120f, 300f, 30f), $"Host: {(TunicRandomizer.Settings.ConnectionSettings.Hostname)}");
-            bool setLocalhost = GUI.Toggle(new Rect(160f, 160f, 90f, 30f), TunicRandomizer.Settings.ConnectionSettings.Hostname == "localhost", "localhost");
-            if (setLocalhost && TunicRandomizer.Settings.ConnectionSettings.Hostname != "localhost") {
-                TunicRandomizer.Settings.ConnectionSettings.Hostname = "localhost";
+            bool setLocalhost = GUI.Toggle(new Rect(160f, 160f, 90f, 30f), TunicRandomizer.Settings.ConnectionSettings.Hostname == "werefox.cafe", "werefox.cafe");
+            if (setLocalhost && TunicRandomizer.Settings.ConnectionSettings.Hostname != "werefox.cafe") {
+                TunicRandomizer.Settings.ConnectionSettings.Hostname = "werefox.cafe";
                 OptionsGUIPatches.SaveSettings();
             }
             bool setArchipelagoHost = GUI.Toggle(new Rect(10f, 160f, 140f, 30f), TunicRandomizer.Settings.ConnectionSettings.Hostname == "archipelago.gg", "archipelago.gg");

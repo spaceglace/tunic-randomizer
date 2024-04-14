@@ -197,6 +197,11 @@ namespace TunicRandomizer {
                 GameObject ArchipelagoObject = new GameObject("archipelago");
                 Archipelago.instance = ArchipelagoObject.AddComponent<Archipelago>();
                 GameObject.DontDestroyOnLoad(ArchipelagoObject);
+
+                GameObject ServerObject = new GameObject("server");
+                Server.instance = ServerObject.AddComponent<Server>();
+                GameObject.DontDestroyOnLoad(ServerObject);
+                
                 if (Locations.VanillaLocations.Count == 0) {
                     Locations.CreateLocationLookups();
                 }
@@ -390,7 +395,7 @@ namespace TunicRandomizer {
                 foreach (Chest chest in Resources.FindObjectsOfTypeAll<Chest>().Where(chest => chest.name == "Chest: Fairy")) {
                     chest.transform.GetChild(4).gameObject.SetActive(false);
                 }
-            } else if(SceneName == "frog cave main") { 
+            } else if(SceneName == "frog cave main") {
                 SetupFrogDomainSecret();
             } else if(SceneName == "Sword Access") {
                 GameObject Bush = GameObject.Find("_Grass/bush (70)");
@@ -540,7 +545,5 @@ namespace TunicRandomizer {
             }
             SceneName = "TitleScreen";
         }
-
     }
-
 }

@@ -37,7 +37,7 @@ namespace TunicRandomizer {
             TMP_FontAsset FontAsset = Resources.FindObjectsOfTypeAll<TMP_FontAsset>().Where(Font => Font.name == "Latin Rounded").ToList()[0];
             Material FontMaterial = Resources.FindObjectsOfTypeAll<Material>().Where(Material => Material.name == "Latin Rounded - Quantity Outline").ToList()[0];
             VersionString = new GameObject("randomizer version");
-            VersionString.AddComponent<TextMeshProUGUI>().text = $"Randomizer Mod Ver. {PluginInfo.VERSION}{(DevBuild ? "-dev" : "")}";
+            VersionString.AddComponent<TextMeshProUGUI>().text = $"Randomizer Mod Ver. {PluginInfo.VERSION}{(DevBuild ? " (tracker testing by AliceWerefox and glace)" : "")}";
             if (UpdateAvailable) {
                 VersionString.GetComponent<TextMeshProUGUI>().text += $" (Update Available: v{UpdateVersion}!)";
             }

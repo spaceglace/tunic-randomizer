@@ -335,12 +335,12 @@ namespace TunicRandomizer {
             { "GoldenTrophy_11", new BonusUpgrade("Level Up - Magic", $"kawngrahJoulA$uhnz! \"(<#2a8fed>+1 MP<#FFFFFF>)\"") },
             { "GoldenTrophy_12", new BonusUpgrade("Level Up - Stamina", $"kawngrahJoulA$uhnz! \"(<#8ddc6e>+1 SP<#FFFFFF>)\"") },
 
-            { "Relic - Hero Sword", new BonusUpgrade("Level Up - Attack", $"\"Hero Relic - <#e99d4c>ATT\"") },
-            { "Relic - Hero Crown", new BonusUpgrade("Level Up - DamageResist", $"\"Hero Relic - <#5de7cf>DEF\"") },
-            { "Relic - Hero Water", new BonusUpgrade("Level Up - PotionEfficiency", $"\"Hero Relic - <#ca7be4>POTION\"") },
-            { "Relic - Hero Pendant HP", new BonusUpgrade("Level Up - Health", $"\"Hero Relic - <#f03c67>HP\"") },
-            { "Relic - Hero Pendant SP", new BonusUpgrade("Level Up - Stamina", $"\"Hero Relic - <#8ddc6e>SP\"") },
-            { "Relic - Hero Pendant MP", new BonusUpgrade("Level Up - Magic", $"\"Hero Relic - <#2a8fed>MP\"") },
+            { "Relic - Hero Sword", new BonusUpgrade("Level Up - Attack", $"\"Hero Relic - <#e99d4c>ATT<#ffffff>\"") },
+            { "Relic - Hero Crown", new BonusUpgrade("Level Up - DamageResist", $"\"Hero Relic - <#5de7cf>DEF<#ffffff>\"") },
+            { "Relic - Hero Water", new BonusUpgrade("Level Up - PotionEfficiency", $"\"Hero Relic - <#ca7be4>POTION<#ffffff>\"") },
+            { "Relic - Hero Pendant HP", new BonusUpgrade("Level Up - Health", $"\"Hero Relic - <#f03c67>HP<#ffffff>\"") },
+            { "Relic - Hero Pendant SP", new BonusUpgrade("Level Up - Stamina", $"\"Hero Relic - <#8ddc6e>SP<#ffffff>\"") },
+            { "Relic - Hero Pendant MP", new BonusUpgrade("Level Up - Magic", $"\"Hero Relic - <#2a8fed>MP<#ffffff>\"") },
         };
 
         public static Dictionary<string, Fairy> FairyLookup = new Dictionary<string, Fairy>() {

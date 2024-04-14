@@ -39,6 +39,7 @@ namespace TunicRandomizer {
             Tracker = new ItemTracker();
 
             ClassInjector.RegisterTypeInIl2Cpp<Archipelago>();
+            ClassInjector.RegisterTypeInIl2Cpp<Server>();
             ClassInjector.RegisterTypeInIl2Cpp<WaveSpell>();
             ClassInjector.RegisterTypeInIl2Cpp<EntranceSeekerSpell>();
             ClassInjector.RegisterTypeInIl2Cpp<VisibleByNotHavingItem>();
@@ -216,7 +217,6 @@ namespace TunicRandomizer {
             Harmony.Patch(AccessTools.Method(typeof(ConduitNode), "CheckConnectedToPower"), new HarmonyMethod(AccessTools.Method(typeof(InteractionPatches), "ConduitNode_CheckConnectedToPower_PrefixPatch")));
 
             Harmony.Patch(AccessTools.Method(typeof(SceneLoader), "OnSceneLoaded"), null, new HarmonyMethod(AccessTools.Method(typeof(SecretMayor), "SceneLoader_OnSceneLoaded_SecretMayorPatch")));
-
         }
     }
 }

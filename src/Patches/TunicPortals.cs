@@ -1,4 +1,5 @@
 ﻿using BepInEx.Logging;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -4187,21 +4188,58 @@ namespace TunicRandomizer {
             var Portals = Resources.FindObjectsOfTypeAll<ScenePortal>().Where(portal => portal.gameObject.scene.name == SceneManager.GetActiveScene().name
             && !portal.FullID.Contains("heirfasttravel") && !portal.id.Contains("heirfasttravel"));
 
+            string foundPortalKey = "";
             foreach (var portal in Portals) {
                 if (portal.FullID == PlayerCharacterSpawn.portalIDToSpawnAt) {
                     foreach (KeyValuePair<string, PortalCombo> portalCombo in TunicPortals.RandomizedPortals) {
                         if (portal.name == portalCombo.Value.Portal1.Name && (portal.name != "Shop Portal" || (portal.name == "Shop Portal" && portalCombo.Value.Portal2.Scene == SceneManager.GetActiveScene().name))) {
+                            if (portalCombo.Key != "") foundPortalKey = portalCombo.Key;
                             SaveFile.SetInt("randomizer entered portal " + portalCombo.Value.Portal1.Name, 1);
                             SaveFile.SetInt("randomizer entered portal " + portalCombo.Value.Portal2.Name, 1);
+
+                            TunicRandomizer.Logger.LogInfo(portalCombo.Value.Portal1.Name + " <--> " + portalCombo.Value.Portal2.Name);
                         }
                         if (portal.name == portalCombo.Value.Portal2.Name && (portal.name != "Shop Portal" || (portal.name == "Shop Portal" && portalCombo.Value.Portal1.Scene == SceneManager.GetActiveScene().name))) {
+                            if (portalCombo.Key != "") foundPortalKey = portalCombo.Key;
                             SaveFile.SetInt("randomizer entered portal " + portalCombo.Value.Portal1.Name, 1);
                             SaveFile.SetInt("randomizer entered portal " + portalCombo.Value.Portal2.Name, 1);
+
+                            TunicRandomizer.Logger.LogInfo(portalCombo.Value.Portal1.Name + " <--> " + portalCombo.Value.Portal2.Name);
                         }
                     }
                 }
             }
-        }
 
+            if (foundPortalKey == "" && SceneManager.GetActiveScene().name == "Shop")
+            {
+                string neededScene = Portals.ToArray()[0].FullID;
+                neededScene = neededScene.Substring(0, neededScene.Length - 1);
+
+                foreach (var pc in TunicPortals.RandomizedPortals)
+                {
+                    if (
+                        ((pc.Value.Portal1.Name == "Shop" || pc.Value.Portal1.Name == "Shop Portal") && pc.Value.Portal2.Scene == neededScene) ||
+                        ((pc.Value.Portal2.Name == "Shop" || pc.Value.Portal2.Name == "Shop Portal") && pc.Value.Portal1.Scene == neededScene)
+                    )
+                    {
+                        TunicRandomizer.Logger.LogInfo("Traced shop doorway to " + neededScene + ": " + pc.Value.Portal1.Name + " <---> " + pc.Value.Portal2.Name);
+                    }
+                }
+            }
+
+            TunicRandomizer.Logger.LogInfo("Walked through portal: [" + foundPortalKey + "]");
+
+            if (foundPortalKey != "")
+            {
+                HashSet<string> visited = new HashSet<string>(SaveFile.GetString("RandoVisitedDoors").Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
+
+                if (!visited.Contains(foundPortalKey))
+                {
+                    TunicRandomizer.Logger.LogInfo("New door combo entered: " + foundPortalKey);
+                    visited.Add(foundPortalKey);
+                    SaveFile.SetString("RandoVisitedDoors", string.Join(",", visited));
+                }
+            }
+        }
     }
 }

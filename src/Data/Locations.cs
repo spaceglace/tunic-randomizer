@@ -127,7 +127,9 @@ namespace TunicRandomizer {
             {"g_elements", "Glyph Tower"},
             {"Spirit Arena", "The Heir"},
             {"Purgatory", "Purgatory"},
-            {"Posterity", "Posterity"}
+            {"Posterity", "Posterity"},
+            {"Resurrection", "Resurrection"},
+            {"Loading", "Loading"},
         };
 
         public static Dictionary<string, string> SceneNamesForSpoilerLog = new Dictionary<string, string>() {

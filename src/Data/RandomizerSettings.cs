@@ -9,6 +9,7 @@ namespace TunicRandomizer {
     public class RandomizerSettings {
 
         public ConnectionSettings ConnectionSettings { get; set; }
+        public ServerSettings ServerSettings { get; set; }
 
         public enum RandomizerType {
             SINGLEPLAYER,
@@ -320,8 +321,9 @@ namespace TunicRandomizer {
         }
 
         public RandomizerSettings() {
-
             ConnectionSettings = new ConnectionSettings();
+            ServerSettings = new ServerSettings();
+
             Mode = RandomizerType.SINGLEPLAYER;
 
             // Single Player
