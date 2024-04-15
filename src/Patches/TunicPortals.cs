@@ -4223,6 +4223,7 @@ namespace TunicRandomizer {
                     )
                     {
                         TunicRandomizer.Logger.LogInfo("Traced shop doorway to " + neededScene + ": " + pc.Value.Portal1.Name + " <---> " + pc.Value.Portal2.Name);
+                        foundPortalKey = pc.Key;
                     }
                 }
             }
