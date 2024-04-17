@@ -16,6 +16,9 @@ namespace TunicRandomizer
 {
     public class Server : MonoBehaviour
     {
+        public static int TIMEOUT = 1000;
+        public static string VERSION = "Homologation";
+
         private static Dictionary<(string, string), string> Codes = new Dictionary<(string, string), string>
         {
             { ("Overworld", "SV_Overworld Redux_Obelisk_Solved"), "Golden Obelisk Page" },
@@ -351,7 +354,6 @@ namespace TunicRandomizer
             WAITING_FOR_REQUEST,
             PENDING_PROCESSING,
             RESPONSE_READY,
-            IGNORE,
         };
 
         private HttpListener Listener;
@@ -369,11 +371,17 @@ namespace TunicRandomizer
 
         public void Update()
         {
+            // short circuit if there's nothing waiting for us to handle
             if (State != ServerState.PENDING_PROCESSING) return;
 
             // to replicate current functionality, just don't do anything if there's no player
             PlayerCharacter __instance = PlayerCharacter.instance;
-            if (__instance == null) return;
+            if (__instance == null)
+            {
+                Payload = JsonConvert.SerializeObject(new ErrorResponse("There is no fox."));
+                State = ServerState.RESPONSE_READY;
+                return;
+            }
 
             try
             {
@@ -403,7 +411,7 @@ namespace TunicRandomizer
                                 owner = Archipelago.instance.GetPlayerName(curItem.Player);
                             }
 
-                            // this shit dumb
+                            // homologate discrepencies between the rando's internal names and archipelago's internal names
                             if (scene == "Southeast Cross Door") scene = "Southeast Cross Room";
                             else if (scene == "Fountain Cross Door") scene = "Fountain Cross Room";
 
@@ -574,6 +582,8 @@ namespace TunicRandomizer
                 TunicRandomizer.Logger.LogInfo("Hit exception in handler: " + e.Message);
                 TunicRandomizer.Logger.LogError(e.StackTrace);
             }
+
+            //TunicRandomizer.Logger.LogInfo("Done handling");
         }
 
         public void OnDestroy()
@@ -588,8 +598,7 @@ namespace TunicRandomizer
             Listener.Prefixes.Add($"http://*:{Port}/");
             Listener.Start();
             Running = true;
-            TunicRandomizer.Logger.LogInfo("API server started on port " + Port);
-            TunicRandomizer.Logger.LogInfo("API server version: TEST-18180414");
+            TunicRandomizer.Logger.LogInfo("API server \"" + VERSION + "\" started on port " + Port);
 
             State = ServerState.WAITING_FOR_REQUEST;
             Receive();
@@ -604,16 +613,20 @@ namespace TunicRandomizer
 
         private void Receive()
         {
+            // TunicRandomizer.Logger.LogInfo("Starting Receive");
             Listener.BeginGetContext(new AsyncCallback(ListenerCallback), Listener);
         }
 
         private void ListenerCallback(IAsyncResult result)
         {
+            // TunicRandomizer.Logger.LogInfo("Received callback");
             if (!Listener.IsListening) return;
 
             var context = Listener.EndGetContext(result);
             var request = context.Request;
             var response = context.Response;
+
+            // TunicRandomizer.Logger.LogInfo("  Request being processed: " + request.HttpMethod + " " + request.RawUrl);
 
             response.AppendHeader("Access-Control-Allow-Origin", "*");
             if (request.HttpMethod == "OPTIONS")
@@ -621,8 +634,7 @@ namespace TunicRandomizer
                 response.AddHeader("Access-Control-Allow-Headers", "Content-Type, Accept, X-Requested-With");
                 response.AddHeader("Access-Control-Allow-Methods", "GET, POST");
                 response.AddHeader("Access-Control-Max-Age", "1728000");
-
-                State = ServerState.IGNORE;
+                State = ServerState.RESPONSE_READY;
             }
 
             if (request.RawUrl == "/ruok")
@@ -655,20 +667,26 @@ namespace TunicRandomizer
                 State = ServerState.PENDING_PROCESSING;
             }
 
+            // don't wait if our request didn't match anything
+            if (State == ServerState.WAITING_FOR_REQUEST)
+            {
+                Payload = JsonConvert.SerializeObject(new ErrorResponse("Unrecognized path: " + request.RawUrl));
+                State = ServerState.RESPONSE_READY;
+            }
+
             // Timeouts
             DateTime start = DateTime.UtcNow;
-            DateTime timeout = start.AddMilliseconds(1000);
-            while (State != ServerState.RESPONSE_READY && State != ServerState.IGNORE) {
+            DateTime timeout = start.AddMilliseconds(TIMEOUT);
+            while (State != ServerState.RESPONSE_READY) {
                 if (DateTime.UtcNow.CompareTo(timeout) > 0)
                 {
-                    TunicRandomizer.Logger.LogInfo("API Server Timed out");
+                    TunicRandomizer.Logger.LogInfo("API Server hit " + TIMEOUT + "ms timeout");
                     Payload = JsonConvert.SerializeObject(new ErrorResponse("Hit 1000ms timeout waiting for handler response."));
-                    response.StatusCode = (int)HttpStatusCode.GatewayTimeout;
                     break;
                 }
             }
             TimeSpan elapsed = DateTime.UtcNow.Subtract(start);
-            // TunicRandomizer.Logger.LogInfo("SERVER-1312: " + request.RawUrl + " handled in " + elapsed.TotalMilliseconds + "ms");
+            // TunicRandomizer.Logger.LogInfo("  SERVER-02: " + request.RawUrl + " handled in " + elapsed.TotalMilliseconds + "ms");
 
             byte[] output = Encoding.ASCII.GetBytes(Payload);
             response.StatusCode = (int)HttpStatusCode.OK;
@@ -677,6 +695,7 @@ namespace TunicRandomizer
             response.OutputStream.Close();
 
             State = ServerState.WAITING_FOR_REQUEST;
+            // TunicRandomizer.Logger.LogInfo("  Done with processing");
             Receive();
         }
     }
