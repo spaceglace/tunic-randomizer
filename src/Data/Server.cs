@@ -17,7 +17,7 @@ namespace TunicRandomizer
     public class Server : MonoBehaviour
     {
         public static int TIMEOUT = 1000;
-        public static string VERSION = "Homologation";
+        public static string VERSION = "Collection";
 
         private static Dictionary<(string, string), string> Codes = new Dictionary<(string, string), string>
         {
@@ -226,11 +226,13 @@ namespace TunicRandomizer
         {
             public string name;
             public string owner;
+            public bool collected;
 
-            public Item(string name, string owner)
+            public Item(string name, string owner, bool collected)
             {
                 this.name = name;
                 this.owner = owner;
+                this.collected = collected;
             }
         }
         private class Door
@@ -246,29 +248,33 @@ namespace TunicRandomizer
         }
         private class ItemScene
         {
-            public int collected;
+            public int found;
             public int remaining;
+            public int collected;
             public int total;
             public SortedDictionary<string, Item> checks;
 
             public ItemScene()
             {
+                found = 0;
                 collected = 0;
                 remaining = 0;
                 total = 0;
                 checks = new SortedDictionary<string, Item>();
             }
 
-            public void AddItem(string description, string name, string owner)
+            public void AddItem(string description, string name, string owner, bool wasCollected)
             {
                 total++;
                 if (name == "") remaining++;
-                else collected++;
-                checks[description] = new Item(name, owner);
+                else if (wasCollected) collected++;
+                else found++;
+                checks[description] = new Item(name, owner, wasCollected);
             }
         }
         private class ItemScenes
         {
+            public int found;
             public int collected;
             public int remaining;
             public int total;
@@ -276,6 +282,7 @@ namespace TunicRandomizer
 
             public ItemScenes()
             {
+                found = 0;
                 collected = 0;
                 remaining = 0;
                 total = 0;
@@ -287,12 +294,13 @@ namespace TunicRandomizer
                 scenes[scene] = new ItemScene();
             }
 
-            public void AddItem(string scene, string description, string name, string owner)
+            public void AddItem(string scene, string description, string name, string owner, bool wasCollected)
             {
                 total++;
                 if (name == "") remaining++;
-                else collected++;
-                scenes[scene].AddItem(description, name, owner);
+                else if (wasCollected) collected++;
+                else found++;
+                scenes[scene].AddItem(description, name, owner, wasCollected);
             }
         }
         private class DoorScene
@@ -403,6 +411,7 @@ namespace TunicRandomizer
                             string description = slices[1];
                             string name = "";
                             string owner = "";
+                            bool wasCollected = false;
 
                             if (Locations.CheckedLocations[check.Key])
                             {
@@ -411,11 +420,20 @@ namespace TunicRandomizer
                                 owner = Archipelago.instance.GetPlayerName(curItem.Player);
                             }
 
+                            // if archipelago reflect collected is on, check if the check was collected
+                            else if (TunicRandomizer.Settings.CollectReflectsInWorld && SaveFile.GetInt($"randomizer {check.Key} was collected") == 1)
+                            {
+                                ArchipelagoItem curItem = ItemLookup.ItemList[check.Key];
+                                name = curItem.ItemName;
+                                owner = Archipelago.instance.GetPlayerName(curItem.Player);
+                                wasCollected = true;
+                            }
+
                             // homologate discrepencies between the rando's internal names and archipelago's internal names
                             if (scene == "Southeast Cross Door") scene = "Southeast Cross Room";
                             else if (scene == "Fountain Cross Door") scene = "Fountain Cross Room";
 
-                            output.AddItem(scene, description, name, owner);
+                            output.AddItem(scene, description, name, owner, wasCollected);
                         }
                     }
                     else
@@ -431,7 +449,7 @@ namespace TunicRandomizer
                                 name = ItemLookup.GetItemDataFromCheck(check.Value).Name;
                             }
 
-                            output.AddItem(scene, description, name, "");
+                            output.AddItem(scene, description, name, "", false);
                         }
                     }
 
@@ -537,7 +555,8 @@ namespace TunicRandomizer
                     char[] separators = { ',' };
                     output.seed = SaveFile.GetInt("seed");
                     output.scene = currentScene;
-                    output.items = Locations.CheckedLocations.Where(x => x.Value).Count();
+                    // if auto collect is on, also include any collected checks in this total
+                    output.items = Locations.VanillaLocations.Keys.Where(loc => Locations.CheckedLocations[loc] || (SaveFlags.IsArchipelago() && TunicRandomizer.Settings.CollectReflectsInWorld && SaveFile.GetInt($"randomizer {loc} was collected") == 1)).ToList().Count;
                     output.entrances = SaveFile.GetString("RandoVisitedDoors").Split(separators, StringSplitOptions.RemoveEmptyEntries).Length;
                     output.hints = SaveFile.GetString("RandoVisitedFoxes").Split(separators, StringSplitOptions.RemoveEmptyEntries).Length +
                         SaveFile.GetString("RandoVisitedHints").Split(separators, StringSplitOptions.RemoveEmptyEntries).Length +
