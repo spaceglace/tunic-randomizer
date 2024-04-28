@@ -178,6 +178,38 @@ namespace TunicRandomizer
             }
         };
 
+        private class RemoteHint
+        {
+            public string FindingPlayer;
+            public string ReceivingPlayer;
+            public string Item;
+            public string Location;
+            public string Entrance;
+            public bool Found;
+
+            public RemoteHint(string findingPlayer, string receivingPlayer, string item, string location, string entrance, bool found)
+            {
+                FindingPlayer = findingPlayer;
+                ReceivingPlayer = receivingPlayer;
+                Item = item;
+                Location = location;
+                Entrance = entrance;
+                Found = found;
+            }
+        }
+
+        private class AllHints
+        {
+            public Dictionary<string, string> LocalHints;
+            public List<RemoteHint> RemoteHints;
+
+            public AllHints()
+            {
+                LocalHints = new Dictionary<string, string>();
+                RemoteHints = new List<RemoteHint>();
+            }
+        }
+
         private class ErrorResponse
         {
             public string error;
@@ -194,7 +226,8 @@ namespace TunicRandomizer
             public int seed;
             public int items;
             public int entrances;
-            public int hints;
+            public int localHints;
+            public int remoteHints;
             public Dictionary<string, Code> codes;
             public Dictionary<string, Dictionary<string, int>> inventory;
 
@@ -558,34 +591,55 @@ namespace TunicRandomizer
                     // if auto collect is on, also include any collected checks in this total
                     output.items = Locations.VanillaLocations.Keys.Where(loc => Locations.CheckedLocations[loc] || (SaveFlags.IsArchipelago() && TunicRandomizer.Settings.CollectReflectsInWorld && SaveFile.GetInt($"randomizer {loc} was collected") == 1)).ToList().Count;
                     output.entrances = SaveFile.GetString("RandoVisitedDoors").Split(separators, StringSplitOptions.RemoveEmptyEntries).Length;
-                    output.hints = SaveFile.GetString("RandoVisitedFoxes").Split(separators, StringSplitOptions.RemoveEmptyEntries).Length +
+                    output.localHints = SaveFile.GetString("RandoVisitedFoxes").Split(separators, StringSplitOptions.RemoveEmptyEntries).Length +
                         SaveFile.GetString("RandoVisitedHints").Split(separators, StringSplitOptions.RemoveEmptyEntries).Length +
                         SaveFile.GetString("RandoVisitedGraves").Split(separators, StringSplitOptions.RemoveEmptyEntries).Length;
+                    if (IsArchipelago())
+                    {
+                        output.remoteHints = Archipelago.instance.integration.session.DataStorage.GetHints().Length;
+                    }
 
                     Payload = JsonConvert.SerializeObject(output);
                 }
                 else if (Type == "HINTS")
                 {
+                    AllHints payload = new AllHints();
+
                     char[] separators = { ',' };
                     string[] foxes = SaveFile.GetString("RandoVisitedFoxes").Split(separators, StringSplitOptions.RemoveEmptyEntries);
                     string[] hints = SaveFile.GetString("RandoVisitedHints").Split(separators, StringSplitOptions.RemoveEmptyEntries);
                     string[] graves = SaveFile.GetString("RandoVisitedGraves").Split(separators, StringSplitOptions.RemoveEmptyEntries);
-                    Dictionary<string, string> payload = new Dictionary<string, string>();
+
                     foreach (string fox in foxes)
                     {
-                        payload[fox] = Regex.Replace(GhostHints.HintGhosts[fox].Hint, @"(""[\n\r]""| ?[\n\r])", " ");
+                        payload.LocalHints[fox] = Regex.Replace(GhostHints.HintGhosts[fox].Hint, @"(""[\n\r]""| ?[\n\r])", " ");
                     }
                     foreach (string hint in hints)
                     {
-                        payload[hint] = Regex.Replace(Hints.HintMessages[hint], @"(""[\n\r]""| ?[\n\r])", " ");
+                        payload.LocalHints[hint] = Regex.Replace(Hints.HintMessages[hint], @"(""[\n\r]""| ?[\n\r])", " ");
                     }
                     foreach (string grave in graves)
                     {
                         string[] slices = grave.Split(':');
                         if (slices[1] == "R")
-                            payload[slices[0] + " - Relic"] = Regex.Replace(Hints.HeroGraveHints[slices[0]].RelicHint, @"(""[\n\r]""| ?[\n\r])", " ");
+                            payload.LocalHints[slices[0] + " - Relic"] = Regex.Replace(Hints.HeroGraveHints[slices[0]].RelicHint, @"(""[\n\r]""| ?[\n\r])", " ");
                         else
-                            payload[slices[0] + " - Path"] = Regex.Replace(Hints.HeroGraveHints[slices[0]].PathHint, @"(""[\n\r]""| ?[\n\r])", " ");
+                            payload.LocalHints[slices[0] + " - Path"] = Regex.Replace(Hints.HeroGraveHints[slices[0]].PathHint, @"(""[\n\r]""| ?[\n\r])", " ");
+                    }
+
+                    if (IsArchipelago())
+                    {
+                        foreach (var hint in Archipelago.instance.integration.session.DataStorage.GetHints())
+                        {
+                            payload.RemoteHints.Add(new RemoteHint(
+                                Archipelago.instance.GetPlayerName(hint.FindingPlayer),
+                                Archipelago.instance.GetPlayerName(hint.ReceivingPlayer),
+                                Archipelago.instance.GetItemName(hint.ItemId),
+                                Archipelago.instance.GetLocationName(hint.LocationId),
+                                hint.Entrance,
+                                hint.Found
+                            ));
+                        }
                     }
 
                     Payload = JsonConvert.SerializeObject(payload);
