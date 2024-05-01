@@ -19,6 +19,8 @@ namespace TunicRandomizer
         public static int TIMEOUT = 1000;
         public static string VERSION = "Collection";
 
+        public static bool XTREME_DEBUG = true;
+
         private static Dictionary<(string, string), string> Codes = new Dictionary<(string, string), string>
         {
             { ("Overworld", "SV_Overworld Redux_Obelisk_Solved"), "Golden Obelisk Page" },
@@ -226,8 +228,7 @@ namespace TunicRandomizer
             public int seed;
             public int items;
             public int entrances;
-            public int localHints;
-            public int remoteHints;
+            public int hints;
             public Dictionary<string, Code> codes;
             public Dictionary<string, Dictionary<string, int>> inventory;
 
@@ -415,11 +416,14 @@ namespace TunicRandomizer
             // short circuit if there's nothing waiting for us to handle
             if (State != ServerState.PENDING_PROCESSING) return;
 
+            if (XTREME_DEBUG) TunicRandomizer.Logger.LogInfo("    Starting handler (state=" + State + ")");
+
             // to replicate current functionality, just don't do anything if there's no player
             PlayerCharacter __instance = PlayerCharacter.instance;
             if (__instance == null)
             {
                 Payload = JsonConvert.SerializeObject(new ErrorResponse("There is no fox."));
+                if (XTREME_DEBUG) TunicRandomizer.Logger.LogInfo("    There is no fox.");
                 State = ServerState.RESPONSE_READY;
                 return;
             }
@@ -428,6 +432,7 @@ namespace TunicRandomizer
             {
                 if (Type == "ITEMS")
                 {
+                    if (XTREME_DEBUG) TunicRandomizer.Logger.LogInfo("    handling ITEMS endpoint");
                     ItemScenes output = new ItemScenes();
 
                     foreach (string scene in Locations.SimplifiedSceneNames.Values)
@@ -437,6 +442,7 @@ namespace TunicRandomizer
 
                     if (IsArchipelago())
                     {
+                        // look at every archipelago item in this world
                         foreach (KeyValuePair<string, ArchipelagoItem> check in ItemLookup.ItemList)
                         {
                             var slices = Locations.LocationIdToDescription[check.Key].Split(new[] { " - " }, StringSplitOptions.RemoveEmptyEntries);
@@ -471,6 +477,7 @@ namespace TunicRandomizer
                     }
                     else
                     {
+                        // look at every randomized chest
                         foreach (KeyValuePair<string, Check> check in Locations.RandomizedLocations)
                         {
                             string scene = Locations.SimplifiedSceneNames[check.Value.Location.SceneName];
@@ -490,6 +497,7 @@ namespace TunicRandomizer
                 }
                 else if (Type == "DOORS")
                 {
+                    if (XTREME_DEBUG) TunicRandomizer.Logger.LogInfo("    handling DOORS endpoint");
                     DoorScenes output = new DoorScenes();
 
                     foreach (string scene in Locations.SimplifiedSceneNames.Values)
@@ -535,6 +543,7 @@ namespace TunicRandomizer
                 }
                 else if (Type == "OVERVIEW")
                 {
+                    if (XTREME_DEBUG) TunicRandomizer.Logger.LogInfo("    handling OVERVIEW endpoint");
                     Current output = new Current();
 
                     foreach (var category in ImportantItems)
@@ -591,18 +600,19 @@ namespace TunicRandomizer
                     // if auto collect is on, also include any collected checks in this total
                     output.items = Locations.VanillaLocations.Keys.Where(loc => Locations.CheckedLocations[loc] || (SaveFlags.IsArchipelago() && TunicRandomizer.Settings.CollectReflectsInWorld && SaveFile.GetInt($"randomizer {loc} was collected") == 1)).ToList().Count;
                     output.entrances = SaveFile.GetString("RandoVisitedDoors").Split(separators, StringSplitOptions.RemoveEmptyEntries).Length;
-                    output.localHints = SaveFile.GetString("RandoVisitedFoxes").Split(separators, StringSplitOptions.RemoveEmptyEntries).Length +
+                    output.hints = SaveFile.GetString("RandoVisitedFoxes").Split(separators, StringSplitOptions.RemoveEmptyEntries).Length +
                         SaveFile.GetString("RandoVisitedHints").Split(separators, StringSplitOptions.RemoveEmptyEntries).Length +
                         SaveFile.GetString("RandoVisitedGraves").Split(separators, StringSplitOptions.RemoveEmptyEntries).Length;
                     if (IsArchipelago())
                     {
-                        output.remoteHints = Archipelago.instance.integration.session.DataStorage.GetHints().Length;
+                        output.hints += Archipelago.instance.integration.session.DataStorage.GetHints().Length;
                     }
 
                     Payload = JsonConvert.SerializeObject(output);
                 }
                 else if (Type == "HINTS")
                 {
+                    if (XTREME_DEBUG) TunicRandomizer.Logger.LogInfo("    handling HINTS endpoint");
                     AllHints payload = new AllHints();
 
                     char[] separators = { ',' };
@@ -644,19 +654,16 @@ namespace TunicRandomizer
 
                     Payload = JsonConvert.SerializeObject(payload);
                 }
-                else if (Type == "STATS")
-                {
-                }
-
-                State = ServerState.RESPONSE_READY;
             }
             catch (Exception e)
             {
                 TunicRandomizer.Logger.LogInfo("Hit exception in handler: " + e.Message);
                 TunicRandomizer.Logger.LogError(e.StackTrace);
+                Payload = JsonConvert.SerializeObject(new ErrorResponse("Hit exception in handler: " + e.Message));
             }
 
-            //TunicRandomizer.Logger.LogInfo("Done handling");
+            if (XTREME_DEBUG) TunicRandomizer.Logger.LogInfo("    Done handling");
+            State = ServerState.RESPONSE_READY;
         }
 
         public void OnDestroy()
@@ -686,20 +693,20 @@ namespace TunicRandomizer
 
         private void Receive()
         {
-            // TunicRandomizer.Logger.LogInfo("Starting Receive");
+            if (XTREME_DEBUG) TunicRandomizer.Logger.LogInfo("Starting Receive");
             Listener.BeginGetContext(new AsyncCallback(ListenerCallback), Listener);
         }
 
         private void ListenerCallback(IAsyncResult result)
         {
-            // TunicRandomizer.Logger.LogInfo("Received callback");
-            if (!Listener.IsListening) return;
+            if (XTREME_DEBUG) TunicRandomizer.Logger.LogInfo("Received callback");
 
-            var context = Listener.EndGetContext(result);
+            HttpListener listener = (HttpListener)result.AsyncState;
+            var context = listener.EndGetContext(result);
             var request = context.Request;
             var response = context.Response;
 
-            // TunicRandomizer.Logger.LogInfo("  Request being processed: " + request.HttpMethod + " " + request.RawUrl);
+            if (XTREME_DEBUG) TunicRandomizer.Logger.LogInfo("  Request being processed: " + request.HttpMethod + " " + request.RawUrl);
 
             response.AppendHeader("Access-Control-Allow-Origin", "*");
             if (request.HttpMethod == "OPTIONS")
@@ -746,7 +753,6 @@ namespace TunicRandomizer
                 Payload = JsonConvert.SerializeObject(new ErrorResponse("Unrecognized path: " + request.RawUrl));
                 State = ServerState.RESPONSE_READY;
             }
-
             // Timeouts
             DateTime start = DateTime.UtcNow;
             DateTime timeout = start.AddMilliseconds(TIMEOUT);
@@ -758,8 +764,7 @@ namespace TunicRandomizer
                     break;
                 }
             }
-            TimeSpan elapsed = DateTime.UtcNow.Subtract(start);
-            // TunicRandomizer.Logger.LogInfo("  SERVER-02: " + request.RawUrl + " handled in " + elapsed.TotalMilliseconds + "ms");
+            if (XTREME_DEBUG) TunicRandomizer.Logger.LogInfo("  SERVER-02: " + request.RawUrl + " handled in " + DateTime.UtcNow.Subtract(start).TotalMilliseconds + "ms");
 
             byte[] output = Encoding.ASCII.GetBytes(Payload);
             response.StatusCode = (int)HttpStatusCode.OK;
@@ -768,7 +773,7 @@ namespace TunicRandomizer
             response.OutputStream.Close();
 
             State = ServerState.WAITING_FOR_REQUEST;
-            // TunicRandomizer.Logger.LogInfo("  Done with processing");
+            if (XTREME_DEBUG) TunicRandomizer.Logger.LogInfo("  Done with processing");
             Receive();
         }
     }
